@@ -1,0 +1,30 @@
+{
+  "id": "",
+  "name": "",
+  "font_family": "iconfont",
+  "css_prefix_text": "icon-",
+  "description": "",
+  "glyphs": [
+    {
+      "icon_id": "1319525",
+      "name": "炸弹",
+      "font_class": "zhadan",
+      "unicode": "e68a",
+      "unicode_decimal": 59018
+    },
+    {
+      "icon_id": "6908856",
+      "name": "安全",
+      "font_class": "anquan",
+      "unicode": "e62b",
+      "unicode_decimal": 58923
+    },
+    {
+      "icon_id": "15433477",
+      "name": "计时炸弹",
+      "font_class": "jishizhadan",
+      "unicode": "e6a8",
+      "unicode_decimal": 59048
+    }
+  ]
+}
