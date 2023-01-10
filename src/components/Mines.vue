@@ -1,11 +1,7 @@
 <template>
   <div v-for="row, y in state" :key="y" class="box">
-    <MineBlock 
-    v-for="block, x in row" :key="x" 
-    :block=block 
-    :dev = dev
-    @click="onClick(block)"
-    @contextmenu.prevent="onRightClick(block)"></MineBlock>
+    <MineBlock v-for="block, x in row" :key="x" :block=block :dev=dev @click="onClick(block)"
+      @contextmenu.prevent="onRightClick(block)"></MineBlock>
   </div>
   <div class="toFlex">
     <button @click="toDev">上帝模式:{{ isDev }}</button>
@@ -23,13 +19,14 @@ const WIDTH: number = 10
 const HEIGHT: number = 10
 let dev = ref(false)
 let isDev = ref('否')
+let gameState = ref<'play'|'won'|'lost'>('play')
 
 // 是否产生炸弹
 let mineGenerated = false
 // 生成二维数组 , 这里不能用 reactive , 要用 ref , 因为后面 reset的时候, state的地址发生了改变, 监听不到
 let state = ref<BlockState[][]>([])
 
-function toDev(){
+function toDev() {
   dev.value = !dev.value
   dev.value ? isDev.value = '是' : isDev.value = '否'
 }
@@ -48,10 +45,12 @@ function reset() {
     ),
   )
   mineGenerated = false
+  gameState.value = 'play'
 }
 reset()
 
 function onRightClick(block: BlockState) {
+  if (gameState.value != 'play') return
   if (block.isReveal) return
   block.isFlag = !block.isFlag
 }
@@ -132,7 +131,7 @@ function expendZero(block: BlockState) {
     return
   getSibling(block).forEach((s) => {
     // 不是 0 
-    if (!s.isReveal && s.adjacentMines == 0 && !s.isMine) {
+    if (!s.isReveal && s.adjacentMines === 0 && !s.isMine) {
       s.isReveal = true
       expendZero(s)
     }
@@ -142,6 +141,7 @@ function expendZero(block: BlockState) {
 
 // 点击后在显示
 function onClick(block: BlockState) {
+  if (gameState.value != 'play') return
   // 如果没有生成炸弹  
   if (!mineGenerated) {
     generateMines(block)
@@ -149,7 +149,10 @@ function onClick(block: BlockState) {
   }
   block.isReveal = true
   if (block.isMine) {
+    showAllMines()
+    gameState.value = 'lost'
     alert('Boom')
+
     return
   }
   expendZero(block)
@@ -159,17 +162,30 @@ function checkGameState() {
   const blocks = state.value.flat()
   if (blocks.every(block => block.isReveal || block.isFlag)) {
     if (blocks.some(block => block.isFlag && !block.isMine)) {
+      showAllMines()
+      gameState.value = 'lost'
       alert('你骗人')
+  
       return
     }
     else {
       alert('你赢了')
+      gameState.value = 'won'
       return
     }
   }
 }
 
 watchEffect(checkGameState)
+
+function showAllMines(){
+  const blocks = state.value.flat()
+  blocks.forEach((block)=>{
+    if(block.isMine) {
+      block.isReveal = true
+    }
+  })
+}
 
 </script>
 
