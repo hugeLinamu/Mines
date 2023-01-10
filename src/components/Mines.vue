@@ -1,15 +1,10 @@
 <template>
 
   <div v-for="row, y in state" :key="y" class="box">
-    <button 
-    v-for="block, x in row" :key="x" 
-    class="btn" 
-    :style="{ color: getBlockClass(block) }"
-    @click="onClick(block)"
-    @contextmenu.prevent="onRightClick(block)"
-    >
-      <template v-if="block.isFlag" >
-        <div class="iconfont" style="color:coral; text-align: center;">  &#xe6a8;  </div>
+    <button v-for="block, x in row" :key="x" class="btn" :style="{ color: getBlockClass(block) }"
+      @click="onClick(block)" @contextmenu.prevent="onRightClick(block)">
+      <template v-if="block.isFlag">
+        <div class="iconfont" style="color:coral; text-align: center;"> &#xe6a8; </div>
       </template>
       <template v-if="block.isReveal || dev">
         <div v-if="block.isMine" class="iconfont"> &#xe68a;</div>
@@ -19,25 +14,12 @@
   </div>
 </template>
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive , watchEffect } from 'vue'
+import { BlockState } from '../type'
 
 
-
-interface BlockState {
-  x: number,
-  y: number,
-  // 是否翻开
-  isReveal: boolean,
-  // 是否标记
-  isFlag: boolean,
-  // 是不是炸弹
-  isMine: boolean,
-  // 相邻的炸弹数量  
-  adjacentMines: number
-}
-
-const WIDTH: number = 10
-const HEIGHT: number = 10
+const WIDTH: number = 5
+const HEIGHT: number = 5
 
 // 生成二维数组
 const state = reactive(
@@ -66,8 +48,8 @@ const numberColors = [
   '#789262'
 ]
 
-function onRightClick(block:BlockState){
-  if(block.isReveal) return
+function onRightClick(block: BlockState) {
+  if (block.isReveal) return
   block.isFlag = !block.isFlag
 }
 
@@ -90,6 +72,7 @@ function generateMines(initial: BlockState) {
       block.isMine = Math.random() < 0.3
     }
   }
+  updateNumbers()
 }
 
 // 八个方向
@@ -176,20 +159,8 @@ function getSibling(block: BlockState) {
 // 字体颜色
 function getBlockClass(block: BlockState) {
   if (!block.isReveal) return ''
-  return block.isMine ? 'red' : numberColors[block.adjacentMines] 
+  return block.isMine ? 'red' : numberColors[block.adjacentMines]
 }
-
-// 点击后在显示
-function onClick(block: BlockState) {
-  // 如果没有生成炸弹  
-  if (!mineGenerated) {
-    generateMines(block)
-    updateNumbers()
-    mineGenerated = true
-  }
-  block.isReveal = true
-  expendZero(block)
-} 
 
 function expendZero(block: BlockState) {
   if (block.adjacentMines !== 0)
@@ -204,11 +175,40 @@ function expendZero(block: BlockState) {
 }
 
 
+// 点击后在显示
+function onClick(block: BlockState) {
+  // 如果没有生成炸弹  
+  if (!mineGenerated) {
+    generateMines(block)
+    mineGenerated = true
+  }
+  block.isReveal = true
+  if(block.isMine){
+    alert('Boom')
+    return
+  }
+  expendZero(block)
+}
+
+function checkGameState() {
+  const blocks = state.flat()
+  if (blocks.every(block => block.isReveal || block.isFlag)) {
+    if (blocks.some(block => block.isFlag && !block.isMine)){
+      alert('你骗人')
+      return
+    }
+    else{
+      alert('你赢了')
+      return
+    }
+  }
+}
+
+watchEffect(checkGameState)
+
 </script>
 
 <style scoped>
-
-
 @font-face {
   font-family: 'iconfont';
   src: url('../assets/icon/iconfont.ttf?t=1672822715486') format('truetype');
