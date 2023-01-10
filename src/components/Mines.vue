@@ -1,29 +1,41 @@
 <template>
-
   <div v-for="row, y in state" :key="y" class="box">
-    <button v-for="block, x in row" :key="x" class="btn" :style="{ color: getBlockClass(block) }"
-      @click="onClick(block)" @contextmenu.prevent="onRightClick(block)">
-      <template v-if="block.isFlag">
-        <div class="iconfont" style="color:coral; text-align: center;"> &#xe6a8; </div>
-      </template>
-      <template v-if="block.isReveal || dev">
-        <div v-if="block.isMine" class="iconfont"> &#xe68a;</div>
-        <div v-else> {{ block.adjacentMines }}</div>
-      </template>
-    </button>
+    <MineBlock 
+    v-for="block, x in row" :key="x" 
+    :block=block 
+    :dev = dev
+    @click="onClick(block)"
+    @contextmenu.prevent="onRightClick(block)"></MineBlock>
   </div>
+  <div class="toFlex">
+    <button @click="toDev">上帝模式:{{ isDev }}</button>
+    <button @click="reset">重置</button>
+  </div>
+
+
 </template>
 <script setup lang="ts">
-import { reactive , watchEffect } from 'vue'
+import { reactive, watchEffect, ref } from 'vue'
 import { BlockState } from '../type'
+import MineBlock from './MineBlock.vue'
 
+const WIDTH: number = 10
+const HEIGHT: number = 10
+let dev = ref(false)
+let isDev = ref('否')
 
-const WIDTH: number = 5
-const HEIGHT: number = 5
+// 是否产生炸弹
+let mineGenerated = false
+// 生成二维数组 , 这里不能用 reactive , 要用 ref , 因为后面 reset的时候, state的地址发生了改变, 监听不到
+let state = ref<BlockState[][]>([])
 
-// 生成二维数组
-const state = reactive(
-  Array.from({ length: HEIGHT }, (_, y) =>
+function toDev(){
+  dev.value = !dev.value
+  dev.value ? isDev.value = '是' : isDev.value = '否'
+}
+
+function reset() {
+  state.value = Array.from({ length: HEIGHT }, (_, y) =>
     Array.from({ length: WIDTH },
       (_, x): BlockState => ({
         x,
@@ -34,19 +46,10 @@ const state = reactive(
         adjacentMines: 0
       })
     ),
-  ),
-)
-
-const numberColors = [
-  'green',
-  '#00bc12',
-  '#ff8936',
-  '#493131',
-  'skyblue',
-  'pink',
-  '#41555d',
-  '#789262'
-]
+  )
+  mineGenerated = false
+}
+reset()
 
 function onRightClick(block: BlockState) {
   if (block.isReveal) return
@@ -54,16 +57,11 @@ function onRightClick(block: BlockState) {
 }
 
 
-// 上帝模式
-const dev = false
-
-// 是否产生炸弹
-let mineGenerated = false
 
 // 生成炸弹     
 function generateMines(initial: BlockState) {
   // init 表示第一次点击时候的位置
-  for (const row of state) {
+  for (const row of state.value) {
     for (const block of row) {
       // 第一次点击, 上下左右都为 0 , 即不是炸弹
       // 有bug , x轴和y轴都为0 
@@ -87,36 +85,9 @@ const directions = [
   [0, 1]
 ]
 
-
-// 生成附近有炸弹的数
-// function updateNumbers() {
-//   for (const row of state) {
-//     for (const block of row) {
-//       // 进来判断是不是炸弹 , 是炸弹直接返回
-//       if (block.isMine) {
-
-//         continue
-//       }
-//       directions.forEach(([dx, dy]) => {
-//         const x2 = block.x + dx
-//         const y2 = block.y + dy
-//         // 边界限定
-//         if (x2 < 0 || x2 >= WIDTH || y2 < 0 || y2 >= HEIGHT) 
-//           return
-
-//         // console.log(state[dy][dx].isMine);
-//         if(state[y2][x2].isMine){
-//           block.adjacentMines += 1
-//         }
-
-//       })
-//     }
-//   }
-// }
-
 // // 生成附近有炸弹的数
 function updateNumbers() {
-  state.forEach((row, y) => {
+  state.value.forEach((row, y) => {
     row.forEach((block, x) => {
       // 进来判断是不是炸弹 , 是炸弹直接返回
       if (block.isMine)
@@ -127,7 +98,7 @@ function updateNumbers() {
         // 边界限定
         if (x2 < 0 || x2 >= WIDTH || y2 < 0 || y2 >= HEIGHT)
           return
-        if (state[y2][x2].isMine) {
+        if (state.value[y2][x2].isMine) {
           block.adjacentMines += 1
         }
       })
@@ -149,18 +120,12 @@ function getSibling(block: BlockState) {
     if (x2 < 0 || x2 >= WIDTH || y2 < 0 || y2 >= HEIGHT)
       return undefined
     // 返回一个数组
-    return state[x2][y2]
+    return state.value[x2][y2]
   })
     // 对数组进行一个过滤
     .filter(Boolean) as BlockState[]
 }
 
-
-// 字体颜色
-function getBlockClass(block: BlockState) {
-  if (!block.isReveal) return ''
-  return block.isMine ? 'red' : numberColors[block.adjacentMines]
-}
 
 function expendZero(block: BlockState) {
   if (block.adjacentMines !== 0)
@@ -183,7 +148,7 @@ function onClick(block: BlockState) {
     mineGenerated = true
   }
   block.isReveal = true
-  if(block.isMine){
+  if (block.isMine) {
     alert('Boom')
     return
   }
@@ -191,13 +156,13 @@ function onClick(block: BlockState) {
 }
 
 function checkGameState() {
-  const blocks = state.flat()
+  const blocks = state.value.flat()
   if (blocks.every(block => block.isReveal || block.isFlag)) {
-    if (blocks.some(block => block.isFlag && !block.isMine)){
+    if (blocks.some(block => block.isFlag && !block.isMine)) {
       alert('你骗人')
       return
     }
-    else{
+    else {
       alert('你赢了')
       return
     }
@@ -209,28 +174,16 @@ watchEffect(checkGameState)
 </script>
 
 <style scoped>
-@font-face {
-  font-family: 'iconfont';
-  src: url('../assets/icon/iconfont.ttf?t=1672822715486') format('truetype');
-}
-
-.iconfont {
-  font-family: "iconfont" !important;
-  font-size: 24px;
-  font-style: normal;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
 .box {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.btn {
-  margin: 1px;
-  width: 50px;
-  height: 50px;
+.toFlex {
+  display: flex;
+  margin-top: 10px;
+  justify-content: space-around;
+  align-items: center;
 }
 </style>
