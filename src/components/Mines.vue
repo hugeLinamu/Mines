@@ -1,56 +1,69 @@
 <template>
-  <div v-for="row, y in state" :key="y" class="box">
-    <MineBlock v-for="block, x in row" :key="x" :block=block :dev=dev @click="onClick(block)"
+  <div v-for="row, y in state.board" :key="y" class="box">
+    <MineBlock v-for="block, x in row" :key="x" :block=block :dev=state.dev @click="onClick(block)"
       @contextmenu.prevent="onRightClick(block)"></MineBlock>
   </div>
   <div class="toFlex">
-    <button @click="toDev">上帝模式:{{ isDev }}</button>
+    <button @click="state.dev = !state.dev">上帝模式:{{ state.dev? '是': '否' }}</button>
     <button @click="reset">重置</button>
   </div>
 
 
 </template>
 <script setup lang="ts">
-import { reactive, watchEffect, ref } from 'vue'
+import { watchEffect, ref , Ref } from 'vue'
 import { BlockState } from '../type'
 import MineBlock from './MineBlock.vue'
+import { useStorage } from '@vueuse/core'
 
 const WIDTH: number = 10
 const HEIGHT: number = 10
-let dev = ref(false)
-let isDev = ref('否')
-let gameState = ref<'play'|'won'|'lost'>('play')
+
+interface allGameState {
+  dev: boolean,
+  gameState: 'play' | 'won' | 'lost',
+  mineGenerated: boolean,
+  board: BlockState[][]
+}
+
+let state = ref() as Ref<allGameState>
+  // let state = ref<allGameState>()
+
+
+// let dev = ref(false)
+// let gameState = ref<'play' | 'won' | 'lost'>('play')
 
 // 是否产生炸弹
 let mineGenerated = false
 // 生成二维数组 , 这里不能用 reactive , 要用 ref , 因为后面 reset的时候, state的地址发生了改变, 监听不到
-let state = ref<BlockState[][]>([])
 
-function toDev() {
-  dev.value = !dev.value
-  dev.value ? isDev.value = '是' : isDev.value = '否'
-}
 
+
+// 重置
 function reset() {
-  state.value = Array.from({ length: HEIGHT }, (_, y) =>
-    Array.from({ length: WIDTH },
-      (_, x): BlockState => ({
-        x,
-        y,
-        isReveal: false,
-        isFlag: false,
-        isMine: false,
-        adjacentMines: 0
-      })
-    ),
-  )
-  mineGenerated = false
-  gameState.value = 'play'
+  state.value = {
+    dev: false,
+    gameState: 'play',
+    mineGenerated: false,
+    board: Array.from({ length: HEIGHT }, (_, y) =>
+      Array.from({ length: WIDTH },
+        (_, x): BlockState => ({
+          x,
+          y,
+          isReveal: false,
+          isFlag: false,
+          isMine: false,
+          adjacentMines: 0
+        })
+      )
+    )
+  }
 }
 reset()
+watchEffect(reset)
 
 function onRightClick(block: BlockState) {
-  if (gameState.value != 'play') return
+  if (state.value.gameState != 'play') return
   if (block.isReveal) return
   block.isFlag = !block.isFlag
 }
@@ -60,7 +73,7 @@ function onRightClick(block: BlockState) {
 // 生成炸弹     
 function generateMines(initial: BlockState) {
   // init 表示第一次点击时候的位置
-  for (const row of state.value) {
+  for (const row of state.value.board) {
     for (const block of row) {
       // 第一次点击, 上下左右都为 0 , 即不是炸弹
       // 有bug , x轴和y轴都为0 
@@ -86,7 +99,7 @@ const directions = [
 
 // // 生成附近有炸弹的数
 function updateNumbers() {
-  state.value.forEach((row, y) => {
+  state.value.board.forEach((row, y) => {
     row.forEach((block, x) => {
       // 进来判断是不是炸弹 , 是炸弹直接返回
       if (block.isMine)
@@ -97,7 +110,7 @@ function updateNumbers() {
         // 边界限定
         if (x2 < 0 || x2 >= WIDTH || y2 < 0 || y2 >= HEIGHT)
           return
-        if (state.value[y2][x2].isMine) {
+        if (state.value.board[y2][x2].isMine) {
           block.adjacentMines += 1
         }
       })
@@ -119,7 +132,7 @@ function getSibling(block: BlockState) {
     if (x2 < 0 || x2 >= WIDTH || y2 < 0 || y2 >= HEIGHT)
       return undefined
     // 返回一个数组
-    return state.value[x2][y2]
+    return state.value.board[x2][y2]
   })
     // 对数组进行一个过滤
     .filter(Boolean) as BlockState[]
@@ -139,18 +152,18 @@ function expendZero(block: BlockState) {
 }
 
 
-// 点击后在显示
+
 function onClick(block: BlockState) {
-  if (gameState.value != 'play') return
+  if (state.value.gameState != 'play') return
   // 如果没有生成炸弹  
-  if (!mineGenerated) {
+  if (!state.value.mineGenerated) {
     generateMines(block)
-    mineGenerated = true
+    state.value.mineGenerated = true
   }
   block.isReveal = true
   if (block.isMine) {
     showAllMines()
-    gameState.value = 'lost'
+    state.value.gameState = 'lost'
     alert('Boom')
 
     return
@@ -159,18 +172,18 @@ function onClick(block: BlockState) {
 }
 
 function checkGameState() {
-  const blocks = state.value.flat()
-  if (blocks.every(block => block.isReveal || block.isFlag)) {
-    if (blocks.some(block => block.isFlag && !block.isMine)) {
+  const blocks = state.value.board?.flat() 
+  if (blocks?.every(block => block.isReveal || block.isFlag)) {
+    if (blocks?.some(block => block.isFlag && !block.isMine)) {
       showAllMines()
-      gameState.value = 'lost'
+      state.value.gameState = 'lost'
       alert('你骗人')
-  
+
       return
     }
     else {
       alert('你赢了')
-      gameState.value = 'won'
+      state.value.gameState = 'won'
       return
     }
   }
@@ -178,14 +191,16 @@ function checkGameState() {
 
 watchEffect(checkGameState)
 
-function showAllMines(){
-  const blocks = state.value.flat()
-  blocks.forEach((block)=>{
-    if(block.isMine) {
+function showAllMines() {
+  const blocks = state.value.board.flat()
+  blocks.forEach((block) => {
+    if (block.isMine) {
       block.isReveal = true
     }
   })
 }
+
+useStorage('mineSweeper',state)
 
 </script>
 
